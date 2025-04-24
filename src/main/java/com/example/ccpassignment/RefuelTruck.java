@@ -8,9 +8,9 @@ public class RefuelTruck {
     public void refuel(String planeName) {
         try {
             refuelPermit.acquire();
-            System.out.println(planeName + ": Refuelling started...");
+            System.out.println("ATC: Refuelling started for " + planeName);
             Thread.sleep(1000 + new java.util.Random().nextInt(2000));
-            System.out.println(planeName + ": Refuelling completed.");
+            System.out.println("ATC: Refuelling completed for " + planeName);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {

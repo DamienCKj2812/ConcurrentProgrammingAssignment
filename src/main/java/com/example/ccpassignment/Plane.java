@@ -2,20 +2,27 @@ package com.example.ccpassignment;
 
 import java.util.Random;
 
+
 public class Plane extends Thread {
     private final String planeId;
     private final AirTrafficController atc;
     private final RefuelTruck refuelTruck;
+    private final int passengerCount;
 
     public Plane(String planeId, AirTrafficController atc, RefuelTruck refuelTruck) {
         super(planeId);
         this.planeId = planeId;
         this.atc = atc;
         this.refuelTruck = refuelTruck;
+        this.passengerCount = 30 + new Random().nextInt(21); // Random 30–50 passengers
     }
 
     public String getPlaneId() {
         return planeId;
+    }
+
+    public int getPassengerCount() {
+        return passengerCount;
     }
 
     @Override
@@ -30,7 +37,7 @@ public class Plane extends Thread {
                 System.out.println(planeId + ": Landed and coasting to gate...");
                 sleepRandom();
 
-                System.out.println(planeId + ": Docked. Disembarking/Embarking passengers...");
+                System.out.println(planeId + "'s Passengers: " + passengerCount + " disembarking and embarking...");
                 sleepRandom();
                 System.out.println(planeId + ": Re-supplying and cleaning...");
                 sleepRandom();
