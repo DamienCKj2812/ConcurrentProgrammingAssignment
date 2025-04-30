@@ -16,6 +16,25 @@ public class AirTrafficController {
     public boolean requestLanding(Plane plane) {
         long requestTime = System.currentTimeMillis();
         System.out.println("ATC: " + plane.getPlaneId() + " requesting landing...");
+
+        if (plane.isEmergency()) {
+            System.out.println("ATC: Emergency landing requested by " + plane.getPlaneId());
+            try {
+                runway.acquire(); // wait for runway
+                groundAccess.acquire(); // wait for a gate to be available
+                long waitTime = System.currentTimeMillis() - requestTime;
+                waitingTimes.add(waitTime);
+                passengerCounts.add(plane.getPassengerCount());
+                System.out.println("ATC: Emergency landing granted for " + plane.getPlaneId());
+                System.out.println("ATC: Gate assigned for " + plane.getPlaneId());
+                return true;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+
+        // normal landing logic
         if (groundAccess.tryAcquire()) {
             try {
                 runway.acquire();
@@ -32,6 +51,7 @@ public class AirTrafficController {
         } else {
             System.out.println("ATC: Landing permission denied for " + plane.getPlaneId() + ", Airport Full.");
         }
+
         return false;
     }
 
@@ -54,8 +74,10 @@ public class AirTrafficController {
             long min = waitingTimes.get(0);
             long sum = 0;
             for (long t : waitingTimes) {
-                if (t > max) max = t;
-                if (t < min) min = t;
+                if (t > max)
+                    max = t;
+                if (t < min)
+                    min = t;
                 sum += t;
             }
             double avg = (double) sum / waitingTimes.size();

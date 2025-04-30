@@ -2,19 +2,24 @@ package com.example.ccpassignment;
 
 import java.util.Random;
 
-
 public class Plane extends Thread {
     private final String planeId;
     private final AirTrafficController atc;
     private final RefuelTruck refuelTruck;
     private final int passengerCount;
+    private final boolean isEmergency;
 
-    public Plane(String planeId, AirTrafficController atc, RefuelTruck refuelTruck) {
+    public Plane(String planeId, AirTrafficController atc, RefuelTruck refuelTruck, boolean isEmergency) {
         super(planeId);
         this.planeId = planeId;
         this.atc = atc;
         this.refuelTruck = refuelTruck;
-        this.passengerCount = 30 + new Random().nextInt(21); // Random 30–50 passengers
+        this.passengerCount = 30 + new Random().nextInt(21);
+        this.isEmergency = isEmergency;
+    }
+
+    public boolean isEmergency() {
+        return isEmergency;
     }
 
     public String getPlaneId() {

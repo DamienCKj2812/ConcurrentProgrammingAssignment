@@ -11,7 +11,9 @@ public class Main {
         List<Plane> planes = new ArrayList<>();
 
         for (int i = 1; i <= 6; i++) {
-            Plane plane = new Plane("Plane-" + i, atc, refuelTruck);
+            // Simulate an emergency landing for the 4th plane
+            boolean isEmergency = (i == 4); 
+            Plane plane = new Plane("Plane-" + i, atc, refuelTruck, isEmergency);
             planes.add(plane);
             plane.start();
             try {
