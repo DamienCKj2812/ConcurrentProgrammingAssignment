@@ -2,57 +2,78 @@ package com.example.ccpassignment;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.Semaphore;
 
 public class AirTrafficController {
     private final int MAX_PLANES = 3;
     private final Semaphore runway = new Semaphore(1);
     private final Semaphore groundAccess = new Semaphore(MAX_PLANES);
+    private final Queue<Integer> availableGates = new LinkedList<>();
+    private final Object gateLock = new Object();
 
     private final List<Long> waitingTimes = Collections.synchronizedList(new ArrayList<>());
     private final List<Integer> passengerCounts = Collections.synchronizedList(new ArrayList<>());
+
+    // Initialize gates 
+    public AirTrafficController() {
+        for (int i = 1; i <= MAX_PLANES; i++) {
+            availableGates.offer(i);
+        }
+    }
 
     public boolean requestLanding(Plane plane) {
         long requestTime = System.currentTimeMillis();
         System.out.println("ATC: " + plane.getPlaneId() + " requesting landing...");
 
-        if (plane.isEmergency()) {
-            System.out.println("ATC: Emergency landing requested by " + plane.getPlaneId());
-            try {
-                runway.acquire(); // wait for runway
-                groundAccess.acquire(); // wait for a gate to be available
-                long waitTime = System.currentTimeMillis() - requestTime;
-                waitingTimes.add(waitTime);
-                passengerCounts.add(plane.getPassengerCount());
-                System.out.println("ATC: Emergency landing granted for " + plane.getPlaneId());
-                System.out.println("ATC: Gate assigned for " + plane.getPlaneId());
-                return true;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        int assignedGate = -1;
+
+        try {
+            if (plane.isEmergency()) {
+                System.out.println("ATC: Emergency landing requested by " + plane.getPlaneId());
+                runway.acquire();
+                groundAccess.acquire();
+            } else {
+                if (!groundAccess.tryAcquire()) {
+                    System.out.println("ATC: Landing permission denied for " + plane.getPlaneId() + ", Airport Full.");
+                    return false;
+                }
+                runway.acquire();
+            }
+
+            synchronized (gateLock) {
+                Integer gate = availableGates.poll(); // poll can return null
+                if (gate == null) {
+                    System.out.println("ATC: No gates available.");
+                    runway.release();
+                    groundAccess.release();
+                    return false;
+                }
+                assignedGate = gate;
+            }
+
+            if (assignedGate == -1) {
+                System.out.println("ATC: No gates available.");
+                runway.release();
+                groundAccess.release();
                 return false;
             }
-        }
 
-        // normal landing logic
-        if (groundAccess.tryAcquire()) {
-            try {
-                runway.acquire();
-                long waitTime = System.currentTimeMillis() - requestTime;
-                waitingTimes.add(waitTime);
-                passengerCounts.add(plane.getPassengerCount());
-                System.out.println("ATC: Landing permission granted for " + plane.getPlaneId());
-                System.out.println("ATC: Gate assigned for " + plane.getPlaneId());
-                return true;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                groundAccess.release();
-            }
-        } else {
-            System.out.println("ATC: Landing permission denied for " + plane.getPlaneId() + ", Airport Full.");
-        }
+            plane.setAssignedGate(assignedGate); // store it in the plane
+            long waitTime = System.currentTimeMillis() - requestTime;
+            waitingTimes.add(waitTime);
+            passengerCounts.add(plane.getPassengerCount());
 
-        return false;
+            System.out.println("ATC: Landing permission granted for " + plane.getPlaneId());
+            System.out.println("ATC: Gate " + assignedGate + " assigned for " + plane.getPlaneId());
+            return true;
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public void releaseRunway() {
@@ -61,8 +82,26 @@ public class AirTrafficController {
     }
 
     public void releaseGate(Plane plane) {
-        System.out.println("ATC: Gate released for " + plane.getPlaneId());
+        int gateToRelease = plane.getAssignedGate();
+        if (gateToRelease != -1) {
+            synchronized (gateLock) {
+                availableGates.offer(gateToRelease); // return gate to queue
+            }
+        }
+        System.out.println("ATC: Gate " + gateToRelease + " released for " + plane.getPlaneId());
         groundAccess.release();
+    }
+
+    public List<Integer> getCurrentGatesInUse() {
+        List<Integer> inUse = new ArrayList<>();
+        synchronized (gateLock) {
+            for (int i = 1; i <= MAX_PLANES; i++) {
+                if (!availableGates.contains(i)) {
+                    inUse.add(i);
+                }
+            }
+        }
+        return inUse;
     }
 
     public void printStatistics() {

@@ -8,6 +8,7 @@ public class Plane extends Thread {
     private final RefuelTruck refuelTruck;
     private final int passengerCount;
     private final boolean isEmergency;
+    private int assignedGate = -1;
 
     public Plane(String planeId, AirTrafficController atc, RefuelTruck refuelTruck, boolean isEmergency) {
         super(planeId);
@@ -20,6 +21,14 @@ public class Plane extends Thread {
 
     public boolean isEmergency() {
         return isEmergency;
+    }
+
+    public int getAssignedGate() {
+        return assignedGate;
+    }
+
+    public void setAssignedGate(int gate) {
+        this.assignedGate = gate;
     }
 
     public String getPlaneId() {
