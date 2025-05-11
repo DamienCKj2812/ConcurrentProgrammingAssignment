@@ -1,10 +1,7 @@
 package com.example.ccpassignment;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 
 public class AirTrafficController {
@@ -16,8 +13,8 @@ public class AirTrafficController {
 
     private final List<Long> waitingTimes = Collections.synchronizedList(new ArrayList<>());
     private final List<Integer> passengerCounts = Collections.synchronizedList(new ArrayList<>());
+    private final Map<String, Integer> planeGateMap = new ConcurrentHashMap<>();
 
-    // Initialize gates 
     public AirTrafficController() {
         for (int i = 1; i <= MAX_PLANES; i++) {
             availableGates.offer(i);
@@ -26,7 +23,7 @@ public class AirTrafficController {
 
     public boolean requestLanding(Plane plane) {
         long requestTime = System.currentTimeMillis();
-        System.out.println("ATC: " + plane.getPlaneId() + " requesting landing...");
+        System.out.println(plane.getPlaneId() + ": Requesting Landing.");
 
         int assignedGate = -1;
 
@@ -37,14 +34,13 @@ public class AirTrafficController {
                 groundAccess.acquire();
             } else {
                 if (!groundAccess.tryAcquire()) {
-                    System.out.println("ATC: Landing permission denied for " + plane.getPlaneId() + ", Airport Full.");
                     return false;
                 }
                 runway.acquire();
             }
 
             synchronized (gateLock) {
-                Integer gate = availableGates.poll(); // poll can return null
+                Integer gate = availableGates.poll();
                 if (gate == null) {
                     System.out.println("ATC: No gates available.");
                     runway.release();
@@ -55,19 +51,20 @@ public class AirTrafficController {
             }
 
             if (assignedGate == -1) {
-                System.out.println("ATC: No gates available.");
                 runway.release();
                 groundAccess.release();
                 return false;
             }
 
-            plane.setAssignedGate(assignedGate); // store it in the plane
+            plane.setAssignedGate(assignedGate);
+            planeGateMap.put(plane.getPlaneId(), assignedGate);
+
             long waitTime = System.currentTimeMillis() - requestTime;
             waitingTimes.add(waitTime);
             passengerCounts.add(plane.getPassengerCount());
 
-            System.out.println("ATC: Landing permission granted for " + plane.getPlaneId());
-            System.out.println("ATC: Gate " + assignedGate + " assigned for " + plane.getPlaneId());
+            System.out.println("ATC: Landing permission granted for " + plane.getPlaneId() + ".");
+            System.out.println("ATC: Gate-" + assignedGate + " assigned for " + plane.getPlaneId() + ".");
             return true;
 
         } catch (InterruptedException e) {
@@ -85,23 +82,17 @@ public class AirTrafficController {
         int gateToRelease = plane.getAssignedGate();
         if (gateToRelease != -1) {
             synchronized (gateLock) {
-                availableGates.offer(gateToRelease); // return gate to queue
+                availableGates.offer(gateToRelease);
             }
+            planeGateMap.remove(plane.getPlaneId());
+            System.out.println("ATC: Gate-" + gateToRelease + " released for " + plane.getPlaneId());
         }
-        System.out.println("ATC: Gate " + gateToRelease + " released for " + plane.getPlaneId());
         groundAccess.release();
     }
 
-    public List<Integer> getCurrentGatesInUse() {
-        List<Integer> inUse = new ArrayList<>();
-        synchronized (gateLock) {
-            for (int i = 1; i <= MAX_PLANES; i++) {
-                if (!availableGates.contains(i)) {
-                    inUse.add(i);
-                }
-            }
-        }
-        return inUse;
+    public String getAssignedGateString(String planeId) {
+        Integer gate = planeGateMap.get(planeId);
+        return gate != null ? "Gate-" + gate : "Unknown Gate";
     }
 
     public void printStatistics() {
@@ -113,18 +104,13 @@ public class AirTrafficController {
             long min = waitingTimes.get(0);
             long sum = 0;
             for (long t : waitingTimes) {
-                if (t > max)
-                    max = t;
-                if (t < min)
-                    min = t;
+                if (t > max) max = t;
+                if (t < min) min = t;
                 sum += t;
             }
             double avg = (double) sum / waitingTimes.size();
 
-            int totalPassengers = 0;
-            for (int count : passengerCounts) {
-                totalPassengers += count;
-            }
+            int totalPassengers = passengerCounts.stream().mapToInt(i -> i).sum();
 
             System.out.println("Planes Served: " + waitingTimes.size());
             System.out.println("Passengers Boarded: " + totalPassengers);
