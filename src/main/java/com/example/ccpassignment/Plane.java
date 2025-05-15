@@ -16,7 +16,7 @@ public class Plane extends Thread {
         this.atc = atc;
         this.refuelTruck = refuelTruck;
         this.emergency = emergency;
-        this.passengerCount = new Random().nextInt(200) + 50; // Random passengers between 50–250
+        this.passengerCount = new Random().nextInt(50); // Random passenger count between 0 and 50 
     }
 
     @Override
